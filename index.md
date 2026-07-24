@@ -3,9 +3,9 @@
 - [Linux Privilege Escalation](Pentesting-Writeups/LinuxPrivEsc.md)
 
 ## THM Machines
-- [RootMe](THM-Machines/RootMe.md)
-- [Vulnversity](THM-Machines/Vulnversity.md)
-- [Brooklyn Nine Nine](THM-Machines/BrooklynNineNine.md)
+- [RootMe](THM-Exploited-Machines/RootMe.md)
+- [Vulnversity](THM-Exploited-Machines/Vulnversity.md)
+- [Brooklyn Nine Nine](THM-Exploited-Machines/BrooklynNineNine.md)
 
 ## Virus (to update)
 - Application Bomber
