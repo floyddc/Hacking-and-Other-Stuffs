@@ -2,10 +2,10 @@
 - [Reconnaissance](Pentesting-Writeups/Reconnaissance.md)
 - [Linux Privilege Escalation](Pentesting-Writeups/LinuxPrivEsc.md)
 
-## THM Machines (to update)
-- RootMe
-- Vulnversity
-- Brooklyn Nine Nine
+## THM Machines
+- [RootMe](THM-Machines/RootMe.md)
+- [Vulnversity](THM-Machines/Vulnversity.md)
+- [Brooklyn Nine Nine](THM-Machines/BrooklynNineNine.md)
 
 ## Virus (to update)
 - Application Bomber

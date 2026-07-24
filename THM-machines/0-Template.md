@@ -1,10 +1,6 @@
 # 📝 Brooklyn Nine-Nine - Pentest Report  
-
-**Platform:**   
-**Difficulty:**   
-**Target OS:**   
-**Assessment Type:**  
-**Author:** Diego Colì  
+- Link: 
+- Difficulty: ``
 
 ---
 

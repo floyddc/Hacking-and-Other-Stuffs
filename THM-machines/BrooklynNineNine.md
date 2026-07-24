@@ -1,10 +1,11 @@
-# 📝 Brooklyn Nine-Nine - Pentest Report  
+---
+layout: default
+title: B99
+---
 
-**Platform:** TryHackMe  
-**Difficulty:** Easy  
-**Target OS:** Linux  
-**Assessment Type:** Black-box (no prior credentials)  
-**Author:** Diego Colì  
+# 📝 Brooklyn Nine-Nine - solution  
+- Link: https://tryhackme.com/room/rrootme
+- Difficulty: `easy`
 
 ---
 

@@ -5,6 +5,6 @@ Collection of notes and tech knowledge to get ready for a cybersecurity career.
 
 **Current directories:**
 - `Pentesting Writeups`
-- `THM Machines` (to update).
-- `Virus` (to update).
-- `Building a Server` (to update).
+- `THM Machines`.
+- `Virus` (to add).
+- `Building a Server` (to add).

